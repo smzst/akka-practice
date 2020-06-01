@@ -3,8 +3,9 @@ import java.nio.file.Path
 import java.time.ZonedDateTime
 
 import akka.stream.IOResult
-import akka.stream.scaladsl.{FileIO, Framing, Source}
+import akka.stream.scaladsl.{FileIO, Flow, Framing, JsonFraming, Source}
 import akka.util.ByteString
+import spray.json._
 
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
@@ -36,11 +37,26 @@ object LogStreamProcessor extends EventMarshalling {
                 duration: FiniteDuration): Source[Seq[Event], T] =
     source.filter(predicate).groupedWithin(nrEvent, duration)
 
-//  def groupByHost[T](
-//    source: Source[Event, T]
-//  ): SubFlow[Event, T, source.Repr, RunnableGraph[T]] = {
+//  def groupByHost[T](source: Source[Event, T]) = {
 //    source.groupBy(10, e => (e.host, e.service))
 //  }
+
+  def convertToJsonBytes[T](
+    flow: Flow[Seq[Event], Seq[Event], T]
+  ): Flow[Seq[Event], ByteString, T] =
+    flow.map(events => ByteString(events.toJson.compactPrint))
+
+  // Path から JSON 文字列の Source を返す
+  def jsonText(path: Path): Source[String, Future[IOResult]] =
+    jsonText(FileIO.fromPath(path), 1024 * 1024)
+
+  // Source から JSON 文字列の Source を返す
+  def jsonText[T](source: Source[ByteString, T],
+                  maxObject: Int): Source[String, T] =
+    convertToString(source.via(JsonFraming.objectScanner(maxObject)))
+
+  def parseJsonEvents[T](source: Source[String, T]): Source[Event, T] =
+    source.map(_.parseJson.convertTo[Event])
 
   def parseLineEx(line: String): Option[Event] = {
     if (!line.isEmpty) {
