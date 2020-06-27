@@ -1,4 +1,5 @@
 import java.nio.charset.StandardCharsets.UTF_8
+import java.nio.file.StandardOpenOption._
 import java.nio.file.{Files, StandardOpenOption}
 import java.time.ZonedDateTime
 
@@ -112,5 +113,69 @@ class LogStreamProcessorSpec
         )
       )
     }
+
+    "be able to output JSON events to a Sink" in {
+      import system.dispatcher
+      val pathLog = Files.createTempFile("logs", ".txt")
+      val pathEvents = Files.createTempFile("events", ".json")
+
+      val bytes = lines.getBytes(UTF_8)
+      // newBufferedWriter は、一定量ためてから書き込むもので効率がよい。サンプルコードなので write にしたんだと思われる。
+      Files.write(pathLog, bytes, APPEND)
+
+      import LogStreamProcessor._
+      val source = logLines(pathLog)
+
+      val results = convertToJsonBytes(errors(parseLogEvents(source)))
+        .toMat(FileIO.toPath(pathEvents, Set(CREATE, WRITE, APPEND)))(
+          Keep.right
+        )
+        .run
+        .flatMap { r =>
+          parseJsonEvents(jsonText(pathEvents))
+            .runWith(Sink.seq[Event])
+        }
+
+      /*
+      以下のようにも書ける。flatMap して r を使わないなら使わないのが分かる方が読みやすいと思った。
+      run を実行した後に書き込まれた pathEvents の中身に興味があるから flatMap で繋げたんだろうけど。
+
+      val results = for {
+        _       <- convertToJsonBytes(errors(parseLogEvents(source)))
+          .toMat(FileIO.toPath(pathEvents, Set(CREATE, WRITE, APPEND)))(Keep.right)
+          .run()
+        results <- parseJsonEvents(jsonText(pathEvents))
+          .runWith(Sink.seq[Event])
+      } yield results
+       */
+
+      Await.result(results, Duration("10 seconds")) must be(
+        Vector(
+          Event(
+            "my-host-3",
+            "web-app",
+            Error,
+            ZonedDateTime.parse("2015-08-12T12:12:03.127Z"),
+            "exception occurred..."
+          )
+        )
+      )
+    }
+
+    "be able to rollup events" in {
+      // Source.apply()
+      val source = Source[Event](Vector(mkEvent, mkEvent, mkEvent, mkEvent))
+
+      val results = LogStreamProcessor
+        .rollup(source, e => e.state == Error, 3, 10.seconds)
+        .runWith(Sink.seq[Seq[Event]])
+
+      val grouped = Await.result(results, 10.seconds)
+      grouped(0).size must be(3)
+      grouped(1).size must be(1)
+    }
+
+    def mkEvent =
+      Event("host", "service", Error, ZonedDateTime.now(), "description")
   }
 }

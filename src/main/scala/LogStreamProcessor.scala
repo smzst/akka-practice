@@ -46,6 +46,9 @@ object LogStreamProcessor extends EventMarshalling {
   ): Flow[Seq[Event], ByteString, T] =
     flow.map(events => ByteString(events.toJson.compactPrint))
 
+  def convertToJsonBytes[T](source: Source[Event, T]): Source[ByteString, T] =
+    source.map(event => ByteString(event.toJson.compactPrint))
+
   // Path から JSON 文字列の Source を返す
   def jsonText(path: Path): Source[String, Future[IOResult]] =
     jsonText(FileIO.fromPath(path), 1024 * 1024)

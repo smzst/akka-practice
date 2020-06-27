@@ -1,7 +1,7 @@
 import java.nio.charset.StandardCharsets.UTF_8
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Flow, Framing, JsonFraming}
+import akka.stream.scaladsl.{BidiFlow, Flow, Framing, JsonFraming}
 import akka.util.ByteString
 import spray.json._
 
@@ -45,8 +45,9 @@ object LogJson
   val textOutFlow: Flow[Event, ByteString, NotUsed] = Flow[Event].map { e =>
     ByteString(LogStreamProcessor.logLine(e))
   }
-//
-//  def logToJson(maxLine: Int) = {
-//
-//  }
+
+  def logToJson(maxLine: Int) = {
+    BidiFlow.fromFlows(textInFlow(maxLine), jsonOutFlow)
+
+  }
 }
