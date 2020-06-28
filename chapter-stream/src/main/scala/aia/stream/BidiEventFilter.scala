@@ -1,9 +1,21 @@
+package aia.stream
+
 import java.nio.charset.StandardCharsets.UTF_8
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.IOResult
-import akka.stream.scaladsl._
+import akka.stream.{ActorMaterializer, IOResult}
+import akka.stream.scaladsl.{
+  BidiFlow,
+  FileIO,
+  Flow,
+  Framing,
+  JsonFraming,
+  Keep,
+  RunnableGraph,
+  Sink,
+  Source
+}
 import akka.util.ByteString
 import com.typesafe.config.ConfigFactory
 import spray.json._
@@ -72,6 +84,7 @@ object BidiEventFilter extends App with EventMarshalling {
 
   implicit val system: ActorSystem = ActorSystem()
   implicit val ec: ExecutionContextExecutor = system.dispatcher
+  implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   runnableGraph.run().foreach { result =>
     println(s"Wrote ${result.count} bytes to '$outputFile'.")

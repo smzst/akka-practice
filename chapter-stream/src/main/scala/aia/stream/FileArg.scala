@@ -1,3 +1,5 @@
+package aia.stream
+
 import java.nio.file.{Path, Paths}
 
 object FileArg {

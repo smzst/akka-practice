@@ -1,3 +1,5 @@
+package aia.stream
+
 import spray.json.{DefaultJsonProtocol, JsonFormat}
 
 trait NotificationMarshalling

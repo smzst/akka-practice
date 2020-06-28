@@ -1,9 +1,11 @@
+package aia.stream
+
 import java.nio.charset.StandardCharsets.UTF_8
-import java.nio.file.StandardOpenOption._
+import java.nio.file.StandardOpenOption.{APPEND, CREATE, WRITE}
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.IOResult
+import akka.stream.{ActorMaterializer, IOResult}
 import akka.util.ByteString
 import com.typesafe.config.ConfigFactory
 import spray.json._
@@ -52,6 +54,7 @@ object EventFilter extends App with EventMarshalling {
 
   implicit val system: ActorSystem = ActorSystem()
   implicit val ec: ExecutionContextExecutor = system.dispatcher
+  implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   val composedFlow: Flow[ByteString, ByteString, NotUsed] =
     frame.via(parse).via(filter).via(serialize)

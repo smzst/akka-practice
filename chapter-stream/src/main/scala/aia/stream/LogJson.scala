@@ -1,3 +1,5 @@
+package aia.stream
+
 import java.nio.charset.StandardCharsets.UTF_8
 
 import akka.NotUsed
@@ -46,8 +48,25 @@ object LogJson
     ByteString(LogStreamProcessor.logLine(e))
   }
 
-  def logToJson(maxLine: Int) = {
+  def logToJson(
+    maxLine: Int
+  ): BidiFlow[ByteString, Event, Event, ByteString, NotUsed] = {
     BidiFlow.fromFlows(textInFlow(maxLine), jsonOutFlow)
+  }
 
+  def jsonToLog(
+    maxJsonObject: Int
+  ): BidiFlow[ByteString, Event, Event, ByteString, NotUsed] = {
+    BidiFlow.fromFlows(jsonInFlow(maxJsonObject), textOutFlow)
+  }
+
+  def logToJsonFlow(maxLine: Int): Flow[ByteString, ByteString, NotUsed] = {
+    logToJson(maxLine).join(Flow[Event])
+  }
+
+  def jsonToLogFlow(
+    maxJsonObject: Int
+  ): Flow[ByteString, ByteString, NotUsed] = {
+    jsonToLog(maxJsonObject).join(Flow[Event])
   }
 }

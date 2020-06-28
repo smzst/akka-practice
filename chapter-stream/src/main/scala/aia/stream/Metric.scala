@@ -1,3 +1,5 @@
+package aia.stream
+
 import java.time.ZonedDateTime
 
 case class Metric(service: String,

@@ -1,8 +1,11 @@
-import java.nio.file.StandardOpenOption._
+package aia.stream
+
+import java.nio.file.StandardOpenOption.{APPEND, CREATE, WRITE}
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{FileIO, Keep, Source}
 import akka.util.ByteString
 
@@ -14,6 +17,7 @@ object GenerateLogFile extends App {
   val rnd = new java.util.Random()
   val sink =
     FileIO.toPath(FileArg.shellExpanded(filePath), Set(CREATE, WRITE, APPEND))
+
   def line(i: Int) = {
     val host = "my-host"
     val service = "my-service"
@@ -39,6 +43,7 @@ object GenerateLogFile extends App {
 
   implicit val system: ActorSystem = ActorSystem()
   implicit val ec: ExecutionContextExecutor = system.dispatcher
+  implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   graph.run().foreach { result =>
     println(s"Wrote ${result.count} bytes to '$filePath'.")

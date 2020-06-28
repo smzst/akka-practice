@@ -1,3 +1,5 @@
+package aia.stream
+
 import java.nio.file.{FileSystems, Files}
 
 import akka.actor.ActorSystem
@@ -13,7 +15,7 @@ object LogsApp extends App {
 
   val config = ConfigFactory.load()
   val host = config.getString("http.host")
-  val port = config.getString("http.port")
+  val port = config.getInt("http.port")
 
   val logsDir = {
     val dir = config.getString("log-stream-processor.logs-dir")
@@ -31,7 +33,6 @@ object LogsApp extends App {
     case _                                       => Supervision.Stop
   }
 
-  // fixme: duplicated
   implicit val materializer = ActorMaterializer(
     ActorMaterializerSettings(system).withSupervisionStrategy(decider)
   )

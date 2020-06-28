@@ -1,6 +1,8 @@
+package aia.stream
+
 import akka.NotUsed
-import akka.http.scaladsl.model.{ContentTypeRange, ContentTypes, HttpEntity}
-import akka.http.scaladsl.unmarshalling.Unmarshaller.UnsupportedContentTypeException
+import akka.http.scaladsl.model._
+import akka.http.scaladsl.unmarshalling.Unmarshaller._
 import akka.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
@@ -29,9 +31,7 @@ object EventUnmarshaller extends EventMarshalling {
             case ContentTypes.`application/json` =>
               Future.successful(LogJson.jsonInFlow(maxJsonObject))
             case other =>
-              Future.failed(
-                new UnsupportedContentTypeException(supported, Some(other))
-              )
+              Future.failed(new UnsupportedContentTypeException(supported))
           }
         // note: HttpEntity.dataBytes は、データを読み取るための Source を返す
         future.map(flow => entity.dataBytes.via(flow))
@@ -40,7 +40,3 @@ object EventUnmarshaller extends EventMarshalling {
     }.forContentTypes(supported.toList: _*)
   }
 }
-
-//class A extends Unmarshaller[HttpEntity, Source[Event, _]] {
-//  override def apply(value: HttpEntity)(implicit ec: ExecutionContext, materializer: Materializer): Future[Source[Event, _]] = ???
-//}

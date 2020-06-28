@@ -1,3 +1,5 @@
+package aia.stream
+
 import java.time.ZonedDateTime
 import java.time.format.{DateTimeFormatter, DateTimeParseException}
 
@@ -40,7 +42,8 @@ trait EventMarshalling extends DefaultJsonProtocol {
     }
   }
 
-  implicit val eventFormat: JsonFormat[Event] = jsonFormat7(Event)
-  implicit val logIdFormat: JsonFormat[LogReceipt] = jsonFormat2(LogReceipt)
-  implicit val errorFormat: JsonFormat[ParseError] = jsonFormat2(ParseError)
+  // JsonFormat[A] ではなく RootJsonFormat[A] の必要がある（LogsApi.postRoute のコメント参照）
+  implicit val eventFormat: RootJsonFormat[Event] = jsonFormat7(Event)
+  implicit val logIdFormat: RootJsonFormat[LogReceipt] = jsonFormat2(LogReceipt)
+  implicit val errorFormat: RootJsonFormat[ParseError] = jsonFormat2(ParseError)
 }

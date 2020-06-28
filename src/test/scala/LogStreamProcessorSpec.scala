@@ -3,6 +3,7 @@ import java.nio.file.StandardOpenOption._
 import java.nio.file.{Files, StandardOpenOption}
 import java.time.ZonedDateTime
 
+import aia.stream.LogStreamProcessor
 import akka.actor.ActorSystem
 import akka.stream.IOResult
 import akka.stream.scaladsl._
@@ -32,7 +33,7 @@ class LogStreamProcessorSpec
       val bytes = lines.getBytes(UTF_8)
       Files.write(path, bytes, StandardOpenOption.APPEND)
 
-      import LogStreamProcessor._
+      import aia.stream.LogStreamProcessor._
 
       val source: Source[String, Future[IOResult]] = logLines(path)
 
@@ -96,7 +97,7 @@ class LogStreamProcessorSpec
       val bytes = json.getBytes(UTF_8)
       Files.write(path, bytes, StandardOpenOption.APPEND)
 
-      import LogStreamProcessor._
+      import aia.stream.LogStreamProcessor._
       val source = jsonText(path)
 
       val results = errors(parseJsonEvents(source)).runWith(Sink.seq[Event])
@@ -123,7 +124,7 @@ class LogStreamProcessorSpec
       // newBufferedWriter は、一定量ためてから書き込むもので効率がよい。サンプルコードなので write にしたんだと思われる。
       Files.write(pathLog, bytes, APPEND)
 
-      import LogStreamProcessor._
+      import aia.stream.LogStreamProcessor._
       val source = logLines(pathLog)
 
       val results = convertToJsonBytes(errors(parseLogEvents(source)))

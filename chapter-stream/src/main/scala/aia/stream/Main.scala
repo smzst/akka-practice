@@ -1,8 +1,10 @@
+package aia.stream
+
 import java.nio.file.Paths
 import java.nio.file.StandardOpenOption.{APPEND, CREATE, WRITE}
 
 import akka.actor.ActorSystem
-import akka.stream.IOResult
+import akka.stream.{ActorMaterializer, IOResult}
 import akka.stream.scaladsl.{FileIO, RunnableGraph, Sink, Source}
 import akka.util.ByteString
 
@@ -23,8 +25,7 @@ object Main {
 
     implicit val system: ActorSystem = ActorSystem()
     implicit val ex: ExecutionContextExecutor = system.dispatcher
-    // 2.6.0 以降より非推奨。なくても問題ない。
-    // implicit val materializer = ActorMaterializer()
+    implicit val materializer: ActorMaterializer = ActorMaterializer()
 
     runnableGraph.run().foreach { result =>
       println(s"${result.status}, ${result.count} bytes read.")

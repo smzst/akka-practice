@@ -1,6 +1,9 @@
+package aia.stream
+
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.{Files, Path}
 
+import akka.{Done, NotUsed}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
@@ -15,8 +18,8 @@ import akka.stream.scaladsl.{
 }
 import akka.stream.{IOResult, Materializer}
 import akka.util.ByteString
-import akka.{Done, NotUsed}
 import spray.json._
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -61,7 +64,9 @@ class LogsApi(val logsDir: Path, val maxLine: Int)(
                 .toMat(logFileSink(logId))(Keep.right)
                 .run()
             ) {
-              // fixme: complete() のとこ、ToResponseMarshallable 型を要求してくる…
+              // > complete() のとこ、ToResponseMarshallable 型を要求してくる… -> 解決済
+              // note: complete() の implicit は、JsonFormat[A] ではなく RootJsonFormat[A] である必要があるので注意。
+              //  akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._ の import も必要
               case Success(IOResult(count, Success(Done))) =>
                 complete(StatusCodes.OK -> LogReceipt(logId, count))
               case Success(IOResult(count, Failure(e))) =>

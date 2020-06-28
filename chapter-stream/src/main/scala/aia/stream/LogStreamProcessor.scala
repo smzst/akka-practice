@@ -1,3 +1,5 @@
+package aia.stream
+
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Path
 import java.time.ZonedDateTime
