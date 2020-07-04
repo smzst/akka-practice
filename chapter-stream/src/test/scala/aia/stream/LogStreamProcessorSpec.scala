@@ -1,15 +1,14 @@
+package aia.stream
+
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.StandardOpenOption._
 import java.nio.file.{Files, StandardOpenOption}
 import java.time.ZonedDateTime
 
-import aia.stream.LogStreamProcessor
 import akka.actor.ActorSystem
 import akka.stream.IOResult
 import akka.stream.scaladsl._
 import akka.testkit.TestKit
-import org.scalatest.matchers.must.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}

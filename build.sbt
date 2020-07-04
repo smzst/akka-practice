@@ -1,4 +1,4 @@
-name := "all"
+name := "akka-in-action"
 
 version := "1.0"
 

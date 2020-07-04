@@ -1,3 +1,5 @@
+package aia.stream
+
 import akka.testkit.TestKit
 import org.scalatest.{BeforeAndAfterAll, Suite}
 
