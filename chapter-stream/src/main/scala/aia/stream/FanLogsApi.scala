@@ -3,12 +3,16 @@ package aia.stream
 import java.nio.file.StandardOpenOption.{APPEND, CREATE, WRITE}
 import java.nio.file.{Files, Path}
 
-import akka.http.scaladsl.common.EntityStreamingSupport
+import akka.http.scaladsl.common.{
+  EntityStreamingSupport,
+  JsonEntityStreamingSupport
+}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
 import akka.stream.scaladsl.{FileIO, Flow, Keep, Source}
 import akka.stream.{IOResult, Materializer}
 import akka.util.ByteString

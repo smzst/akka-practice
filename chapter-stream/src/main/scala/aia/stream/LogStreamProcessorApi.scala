@@ -1,15 +1,33 @@
 package aia.stream
 
-import java.nio.file.Path
 import java.nio.file.StandardOpenOption.{APPEND, CREATE, WRITE}
+import java.nio.file.{Files, Path}
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Broadcast, FileIO, Flow, MergePreferred}
-import akka.stream.{Materializer, OverflowStrategy}
+import akka.http.scaladsl.common.{
+  EntityStreamingSupport,
+  JsonEntityStreamingSupport
+}
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import akka.http.scaladsl.marshalling.Marshal
+import akka.http.scaladsl.model._
+import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
+import akka.stream.scaladsl.{
+  Broadcast,
+  FileIO,
+  Flow,
+  Keep,
+  MergePreferred,
+  Source
+}
+import akka.stream.{IOResult, Materializer, OverflowStrategy}
 import akka.util.ByteString
+import akka.{Done, NotUsed}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
 class LogStreamProcessorApi(val logsDir: Path,
                             val notificationDir: Path,
@@ -18,7 +36,7 @@ class LogStreamProcessorApi(val logsDir: Path,
                             val maxJsObject: Int)(
   implicit val executionContext: ExecutionContext,
   val materializer: Materializer
-) {
+) extends EventMarshalling {
   def logFile(id: String) = logsDir.resolve(id)
 
   val notificationSink = FileIO.toPath(
@@ -124,4 +142,121 @@ class LogStreamProcessorApi(val logsDir: Path,
     FileIO.toPath(logStateFile(logId, state), Set(CREATE, WRITE, APPEND))
   def logStateFile(logId: String, state: State) =
     logFile(s"$logId-${State.normalize(state)}")
+
+  import akka.stream.SourceShape
+  import akka.stream.scaladsl.{GraphDSL, Merge}
+
+  def mergeNotOk(logId: String): Source[ByteString, NotUsed] = {
+    val warning =
+      logFileSource(logId, Warning).via(LogJson.jsonFramed(maxJsObject))
+    val error = logFileSource(logId, Error).via(LogJson.jsonFramed(maxJsObject))
+    val critical =
+      logFileSource(logId, Critical).via(LogJson.jsonFramed(maxJsObject))
+
+    Source.fromGraph(GraphDSL.create() { implicit builder =>
+      import GraphDSL.Implicits._
+
+      val warningShape = builder.add(warning)
+      val errorShape = builder.add(error)
+      val criticalShape = builder.add(critical)
+      val merge = builder.add(Merge[ByteString](3))
+
+      // format: off
+      warningShape  ~> merge
+      errorShape    ~> merge
+      criticalShape ~> merge
+      // format: on
+
+      SourceShape(merge.out)
+    })
+  }
+
+  def logFileSource(logId: String) = FileIO.fromPath(logFile(logId))
+  def archiveSink(logId: String) =
+    FileIO.toPath(logFile(logId), Set(CREATE, WRITE, APPEND))
+  def logFileSink(logId: String) =
+    FileIO.toPath(logFile(logId), Set(CREATE, WRITE, APPEND))
+
+  def route: Route = ???
+
+  implicit val unmarshaller: FromEntityUnmarshaller[Source[Event, _]] =
+    EventUnmarshaller.create(maxLine, maxJsObject)
+  implicit val jsonStreamingSupport: JsonEntityStreamingSupport =
+    EntityStreamingSupport.json()
+
+  def postRoute =
+    pathPrefix("logs" / Segment) { logId =>
+      pathEndOrSingleSlash {
+        post {
+          entity(asSourceOf[Event]) { src =>
+            onComplete(
+              src
+                .via(processEvents(logId))
+                .toMat(archiveSink(logId))(Keep.right)
+                .run()
+            ) {
+              case Success(IOResult(count, Success(Done))) =>
+                complete(StatusCodes.OK -> LogReceipt(logId, count))
+              case Success(IOResult(_, Failure(e))) =>
+                complete(
+                  StatusCodes.BadRequest -> ParseError(logId, e.getMessage)
+                )
+              case Failure(e) =>
+                complete(
+                  StatusCodes.BadRequest -> ParseError(logId, e.getMessage)
+                )
+            }
+          }
+        }
+      }
+    }
+
+  implicit val marshaller = LogEntityMarshaller.create(maxJsObject)
+
+  def getRoute =
+    pathPrefix("logs" / Segment) { logId =>
+      pathEndOrSingleSlash {
+        get {
+          extractRequest { req =>
+            if (Files.exists(logFile(logId))) {
+              val src = logFileSource(logId)
+              complete(Marshal(src).toResponseFor(req))
+            } else {
+              complete(StatusCodes.NotFound)
+            }
+          }
+        }
+      }
+    }
+
+  val StateSegment = Segment.flatMap {
+    case State(state) => Some(state)
+    case _            => None
+  }
+
+  def getLogStateRoute =
+    pathPrefix("logs" / Segment / StateSegment) { (logId, state) =>
+      pathEndOrSingleSlash {
+        get {
+          extractRequest { req =>
+            if (Files.exists(logStateFile(logId, state))) {
+              val src = logFileSource(logId, state)
+              complete(Marshal(src).toResponseFor(req))
+            } else {
+              complete(StatusCodes.NotFound)
+            }
+          }
+        }
+      }
+    }
+
+  import akka.stream.scaladsl.Merge
+
+  def mergeSource[E](source: Vector[Source[E, _]]): Option[Source[E, _]] = {
+    if (source.isEmpty) None
+    if (source.size == 1) Some(source(0))
+    else {
+      Some(Source.combine(source(0), source(1), source.drop(2): _*)(Merge(_)))
+    }
+  }
 }
