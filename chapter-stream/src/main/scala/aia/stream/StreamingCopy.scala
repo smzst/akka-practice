@@ -11,7 +11,7 @@ import akka.util.ByteString
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
 // $ sbt 'run /path/to/inputFile /path/to/outputFile'
-object Main {
+object StreamingCopy {
   def main(args: Array[String]): Unit = {
     val inputFile = Paths.get(args(0))
     val outputFile = Paths.get(args(1))

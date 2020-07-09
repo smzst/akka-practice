@@ -1,7 +1,7 @@
 package aia.stream
 
 import java.nio.file.StandardOpenOption.{APPEND, CREATE, WRITE}
-import java.nio.file.{Files, Path}
+import java.nio.file.{DirectoryStream, Files, Path}
 
 import akka.http.scaladsl.common.{
   EntityStreamingSupport,
@@ -25,8 +25,8 @@ import akka.stream.{IOResult, Materializer, OverflowStrategy}
 import akka.util.ByteString
 import akka.{Done, NotUsed}
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 class LogStreamProcessorApi(val logsDir: Path,
@@ -177,7 +177,8 @@ class LogStreamProcessorApi(val logsDir: Path,
   def logFileSink(logId: String) =
     FileIO.toPath(logFile(logId), Set(CREATE, WRITE, APPEND))
 
-  def route: Route = ???
+  def route: Route =
+    getLogsRoute ~ getLogNotOkRoute ~ postRoute ~ getLogStateRoute ~ getRoute ~ deleteRoute
 
   implicit val unmarshaller: FromEntityUnmarshaller[Source[Event, _]] =
     EventUnmarshaller.create(maxLine, maxJsObject)
@@ -259,4 +260,70 @@ class LogStreamProcessorApi(val logsDir: Path,
       Some(Source.combine(source(0), source(1), source.drop(2): _*)(Merge(_)))
     }
   }
+
+  /* 以下のように書くと、ディレクトリストリームに対して反復処理を実行し、カレントディレクトリのすべてのオブジェクトを読み取れる
+
+    val path = FileSystems.getDefault.getPath("")
+    val dirStream = Files.newDirectoryStream(path)
+    try {
+      import scala.collection.JavaConverters._
+      dirStream.iterator.asScala.toVector
+    } finally dirStream.close
+
+    -> Vector(target, project, .gitignore, chapter-stream, .git, build.sbt, .idea)
+   */
+  def getFileSource[T](
+    dir: Path
+  ): Vector[Source[ByteString, Future[IOResult]]] = {
+    // note: ストリームは try-finally などでクローズする必要がある
+    val dirStream: DirectoryStream[Path] = Files.newDirectoryStream(dir)
+    try {
+      import scala.collection.JavaConverters._
+      val paths = dirStream.iterator.asScala.toVector
+      paths.map(path => FileIO.fromPath(path))
+    }
+  }
+
+  def getLogsRoute =
+    pathPrefix("logs") {
+      pathEndOrSingleSlash {
+        get {
+          extractRequest { req =>
+            val sources = getFileSource(logsDir).map { src =>
+              src.via(LogJson.jsonFramed(maxJsObject))
+            }
+            mergeSource(sources) match {
+              case Some(src) =>
+                complete(Marshal(src).toResponseFor(req))
+              case None =>
+                complete(StatusCodes.NotFound)
+            }
+          }
+        }
+      }
+    }
+
+  def getLogNotOkRoute =
+    pathPrefix("logs" / Segment / "not-ok") { logId =>
+      pathEndOrSingleSlash {
+        get {
+          extractRequest { req =>
+            complete(Marshal(mergeNotOk(logId)).toResponseFor(req))
+          }
+        }
+      }
+    }
+
+  def deleteRoute =
+    pathPrefix("logs" / Segment) { logId =>
+      pathEndOrSingleSlash {
+        delete {
+          if (Files.deleteIfExists(logFile(logId))) {
+            complete(StatusCodes.OK)
+          } else {
+            complete(StatusCodes.NotFound)
+          }
+        }
+      }
+    }
 }

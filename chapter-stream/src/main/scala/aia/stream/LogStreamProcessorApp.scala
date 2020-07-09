@@ -9,15 +9,9 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.typesafe.config.ConfigFactory
 
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.Future
 
-object A {
-  import java.nio.file._
-
-  val path = FileSystems.getDefault.getPath("/tmp/hoge")
-  Files.createDirectories(path)
-}
-object LogsApp extends App {
+object LogStreamProcessorApp extends App {
 
   val config = ConfigFactory.load()
   val host = config.getString("http.host")
@@ -25,17 +19,27 @@ object LogsApp extends App {
 
   val logsDir = {
     val dir = config.getString("log-stream-processor.logs-dir")
-    // todo: FileSystems.getDefault とは
     Files.createDirectories(FileSystems.getDefault.getPath(dir))
   }
+
+  val notificationsDir = {
+    val dir = config.getString("log-stream-processor.notifications-dir")
+    Files.createDirectories(FileSystems.getDefault.getPath(dir))
+  }
+
+  val metricsDir = {
+    val dir = config.getString("log-stream-processor.metrics-dir")
+    Files.createDirectories(FileSystems.getDefault.getPath(dir))
+  }
+
   val maxLine = config.getInt("log-stream-processor.max-line")
+  val maxJsObject = config.getInt("log-stream-processor.max-json-object")
 
-  implicit val system: ActorSystem = ActorSystem()
-  implicit val ec: ExecutionContextExecutor = system.dispatcher
+  implicit val system = ActorSystem()
+  implicit val ec = system.dispatcher
 
-  // どのエラーが起きても失敗させる（マテリアライズされた値は、例外を含む失敗した Future になる）
   val decider: Supervision.Decider = {
-    case _: LogStreamProcessor.LogParseException => Supervision.Stop
+    case _: LogStreamProcessor.LogParseException => Supervision.Resume
     case _                                       => Supervision.Stop
   }
 
@@ -43,20 +47,28 @@ object LogsApp extends App {
     ActorMaterializerSettings(system).withSupervisionStrategy(decider)
   )
 
-  val api = new LogsApi(logsDir, maxLine).routes
+  val api = new LogStreamProcessorApi(
+    logsDir,
+    notificationsDir,
+    metricsDir,
+    maxLine,
+    maxJsObject
+  ).route
 
   val bindingFuture: Future[ServerBinding] =
     Http().bindAndHandle(api, host, port)
 
-  val log = Logging(system.eventStream, "logs")
+  val log = Logging(system.eventStream, "processor")
 
   bindingFuture
     .map { serverBinding =>
       log.info(s"Bound to ${serverBinding.localAddress} ")
     }
-    .recover {
+    .failed
+    .foreach {
       case ex: Exception =>
-        log.error(ex, "Failed to bind {}:{}!", host, port)
+        log.error(ex, "Failed to bind to {}:{}", host, port)
         system.terminate()
     }
+
 }
