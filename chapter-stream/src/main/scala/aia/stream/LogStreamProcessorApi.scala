@@ -281,7 +281,7 @@ class LogStreamProcessorApi(val logsDir: Path,
       import scala.collection.JavaConverters._
       val paths = dirStream.iterator.asScala.toVector
       paths.map(path => FileIO.fromPath(path))
-    }
+    } finally dirStream.close
   }
 
   def getLogsRoute =

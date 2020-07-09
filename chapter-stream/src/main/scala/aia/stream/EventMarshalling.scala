@@ -17,7 +17,7 @@ trait EventMarshalling extends DefaultJsonProtocol {
           try {
             ZonedDateTime.parse(str)
           } catch {
-            case e: DateTimeParseException =>
+            case _: DateTimeParseException =>
               val message = s"Could not deserialize $str to ZonedDateTime."
               deserializationError(message)
           }

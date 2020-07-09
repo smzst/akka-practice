@@ -89,7 +89,7 @@ object LogStreamProcessor extends EventMarshalling {
             case State(s) => s
             case _        => throw new Exception(s"Unexpected state: $line")
           }, ZonedDateTime.parse(time.trim), description.trim))
-        case x =>
+        case _ =>
           throw new LogParseException(s"Failed on line: $line")
       }
     } else None

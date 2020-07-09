@@ -30,7 +30,7 @@ object EventUnmarshaller extends EventMarshalling {
               Future.successful(LogJson.textInFlow(maxLine))
             case ContentTypes.`application/json` =>
               Future.successful(LogJson.jsonInFlow(maxJsonObject))
-            case other =>
+            case _ =>
               Future.failed(new UnsupportedContentTypeException(supported))
           }
         // note: HttpEntity.dataBytes は、データを読み取るための Source を返す

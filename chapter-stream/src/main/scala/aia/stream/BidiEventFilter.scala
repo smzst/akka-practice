@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets.UTF_8
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer, IOResult}
 import akka.stream.scaladsl.{
   BidiFlow,
   FileIO,
@@ -16,6 +15,7 @@ import akka.stream.scaladsl.{
   Sink,
   Source
 }
+import akka.stream.{ActorMaterializer, IOResult}
 import akka.util.ByteString
 import com.typesafe.config.ConfigFactory
 import spray.json._

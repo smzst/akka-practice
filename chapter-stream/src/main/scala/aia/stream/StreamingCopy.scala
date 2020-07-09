@@ -4,8 +4,8 @@ import java.nio.file.Paths
 import java.nio.file.StandardOpenOption.{APPEND, CREATE, WRITE}
 
 import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer, IOResult}
 import akka.stream.scaladsl.{FileIO, RunnableGraph, Sink, Source}
+import akka.stream.{ActorMaterializer, IOResult}
 import akka.util.ByteString
 
 import scala.concurrent.{ExecutionContextExecutor, Future}

@@ -54,7 +54,8 @@ object LogsApp extends App {
     .map { serverBinding =>
       log.info(s"Bound to ${serverBinding.localAddress} ")
     }
-    .recover {
+    .failed
+    .foreach {
       case ex: Exception =>
         log.error(ex, "Failed to bind {}:{}!", host, port)
         system.terminate()

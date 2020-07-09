@@ -52,7 +52,7 @@ class ContentNegLogsApi(val logsDir: Path,
             ) {
               case Success(IOResult(count, Success(Done))) =>
                 complete(StatusCodes.OK -> LogReceipt(logId, count))
-              case Success(IOResult(count, Failure(e))) =>
+              case Success(IOResult(_, Failure(e))) =>
                 complete(StatusCodes.BadRequest -> e.getMessage)
               case Failure(e) =>
                 complete(
