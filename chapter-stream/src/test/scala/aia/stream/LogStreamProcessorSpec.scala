@@ -6,17 +6,18 @@ import java.nio.file.{Files, StandardOpenOption}
 import java.time.ZonedDateTime
 
 import akka.actor.ActorSystem
-import akka.stream.IOResult
+import akka.stream.{ActorMaterializer, IOResult}
 import akka.stream.scaladsl._
 import akka.testkit.TestKit
+import org.scalatest.{MustMatchers, WordSpecLike}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 class LogStreamProcessorSpec
     extends TestKit(ActorSystem("test-filter"))
-    with AnyWordSpecLike
-    with Matchers
+    with WordSpecLike
+    with MustMatchers
     with StopSystemAfterAll {
 
   val lines: String =
@@ -27,6 +28,8 @@ class LogStreamProcessorSpec
 
   "A log stream processor" must {
     "be able to read a log file and parse events" in {
+      implicit val materializre = ActorMaterializer()
+
       val path = Files.createTempFile("logs", ".txt")
 
       val bytes = lines.getBytes(UTF_8)
@@ -58,6 +61,8 @@ class LogStreamProcessorSpec
     }
 
     "be able to read it's own output" in {
+      implicit val materializer = ActorMaterializer()
+
       val path = Files.createTempFile("logs", ".json")
       val json =
         """
@@ -115,7 +120,9 @@ class LogStreamProcessorSpec
     }
 
     "be able to output JSON events to a Sink" in {
+      implicit val materializer = ActorMaterializer()
       import system.dispatcher
+
       val pathLog = Files.createTempFile("logs", ".txt")
       val pathEvents = Files.createTempFile("events", ".json")
 
@@ -163,7 +170,8 @@ class LogStreamProcessorSpec
     }
 
     "be able to rollup events" in {
-      // Source.apply()
+      implicit val materializer = ActorMaterializer()
+
       val source = Source[Event](Vector(mkEvent, mkEvent, mkEvent, mkEvent))
 
       val results = LogStreamProcessor
