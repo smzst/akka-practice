@@ -119,3 +119,6 @@ project/plugins/project/
 .lib/
 
 .idea
+/logs/
+/metrics/
+/notifications/
